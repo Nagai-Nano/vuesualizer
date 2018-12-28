@@ -13,9 +13,8 @@
             <img
               width="130"
               height="130"
-              class="rounded-sm"
+              class="rounded-sm shadow"
               :src="`/thumbnails/${thumbnails[index]}`"
-              :alt="`/thumbnails/${thumbnails[index]}`"
             />
           </div>
           <div class="self-center mb-1 text-left">
@@ -80,7 +79,7 @@
           for (let i = 0, len = dataArray.length; i < 100; i++) {
             let barX = i * 7
             let barWidth = 6
-            let barHeight = -(dataArray[i] / 2)
+            let barHeight = -(dataArray[i] / 2.5)
 
             ctx.fillRect(barX, height, barWidth, barHeight)
           }
@@ -93,11 +92,9 @@
       },
 
       nextSong() {
-        this.index++
-        const next = this.songs[this.index]
-
-        if(next) {
-          this.audio.src = `/songs/${next}`
+        if(this.songs[this.index + 1]) {
+          this.index++
+          this.audio.src = `/songs/${this.songs[this.index]}`
           this.audio.play()
         }
         else console.log('end')
