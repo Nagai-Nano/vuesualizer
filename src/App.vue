@@ -74,7 +74,7 @@
         songs: [],
         thumbnails: [],
         background: '',
-        index: 4,
+        index: 0,
         audio: new Audio,
         progress: '0%',
         upNext: false,
