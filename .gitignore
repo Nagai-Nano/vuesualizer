@@ -21,6 +21,6 @@ yarn-error.log*
 *.sw*
 
 # Public Assets
-public/backgrounds/*
+public/background/*
 public/thumbnails/*
 public/songs/*
