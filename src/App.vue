@@ -98,13 +98,17 @@
         return { name, artist }
       },
 
+      playSong() {
+        this.audio.src = `/songs/${this.songs[this.index]}`
+        this.audio.play()
+      },
+
       initPlayer() {
         const canvas = this.$refs.canvas
         const ctx = canvas.getContext("2d")
         const { width, height } = canvas
 
-        this.audio.src = `/songs/${this.songs[this.index]}`
-        this.audio.play()
+        this.playSong()
 
         const context = new AudioContext()
         const analyser = context.createAnalyser()
@@ -125,7 +129,7 @@
           ctx.clearRect(0, 0, width, height)
           ctx.fillStyle = '#fff'
 
-          for (let i = 0, len = dataArray.length; i < 100; i++) {
+          for (let i = 0, len = dataArray.length; i < len; i++) {
             let barX = i * 7
             let barWidth = 6
             let barHeight = -(dataArray[i] / 2.5)
@@ -150,15 +154,17 @@
       nextSong() {
         if(this.songs[this.index + 1]) {
           this.index++
-          this.audio.src = `/songs/${this.songs[this.index]}`
-          this.audio.play()
+          this.playSong()
 
           setTimeout(() => {
             this.upNext = false
             this.preFetch()
           }, 500)
         }
-        else console.log('tắt nghỉ :))')
+        else {
+          this.index = 0
+          this.playSong()
+        }
       },
 
       preFetch() {
