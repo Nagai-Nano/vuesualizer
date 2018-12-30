@@ -169,12 +169,14 @@
 
       preFetch() {
         const nextIndex = this.index + 1
-        const nextDataPaths = [
-          `/thumbnails/${this.thumbnails[nextIndex]}`,
-          `/songs/${this.songs[nextIndex]}`,
-        ]
+        if(this.songs[nextIndex]) {
+          const nextDataPaths = [
+            `/thumbnails/${this.thumbnails[nextIndex]}`,
+            `/songs/${this.songs[nextIndex]}`
+          ]
 
-        Promise.all(nextDataPaths.map(path => axios.get(path)))
+          Promise.all(nextDataPaths.map(path => axios.get(path)))
+        }
       }
     },
     computed: {
