@@ -1,217 +1,181 @@
 <template>
-  <div
-    id="app"
-    class="w-screen h-screen overflow-hidden relative"
-    :style="{ background: `url(/background/${background})` }"
-  >
-    <transition
-      name="custom-classes-transition"
-      enter-active-class="animated bounceInLeft"
-      leave-active-class="animated bounceOutRight"
-    >
-      <div
-        v-if="upNext"
-        id="upNext"
-        class="w-full h-full absolute pin-t pin-l"
-        :style="{ background: `url(/background/${background})` }"
-      >
-        <div
-          class="w-full h-full flex flex-col items-center justify-center"
-          style="background: rgba(0, 0, 0, .3);"
-        >
-          <h1
-            class="text-black bg-white px-4 py-3 uppercase rounded shadow-md text-4xl text-center font-bold tracking-wide mt-8"
-            style="opacity: .9; min-width: 25%; max-width: 65%;"
-          >
-            <i class="fa fa-forward"></i>
-            {{ upNextSong.name }}
-          </h1>
-          <span
-            class="text-white bg-black px-4 py-3 tracking-wide uppercase shadow-md text-center rounded"
-            style="opacity: .9; min-width: 15%; max-width: 50%;"
-          >
-            {{ upNextSong.artist }}
-          </span>
-        </div>
-      </div>
-    </transition>
-    <div
-      class="w-full h-full flex items-center justify-center"
-      style="background: rgba(0, 0, 0, .3);"
-    >
-      <div class="self-end mb-32 w-3/5">
-        <div class="text-center">
-          <canvas ref="canvas" class="w-full h-32"></canvas>
-          <div class="w-full mb-1" style="height: 3px; background: rgba(255, 255, 255, .3);">
-            <div class="bg-white h-full" :style="{ width: progress }"></div>
+  <div class="w-100 h-100 position-relative">
+    <div class="blurred-background w-100 h-100 position-absolute" />
+    <div class="content w-100 h-100 position-absolute">
+      <div class="container">
+        <canvas ref="canvas" :class="{ 'd-none': loading }" class="w-100" />
+        <template v-if="!loading">
+          <div class="song-progress">
+            <div class="h-100 bg-light" :style="{ width: progress }"></div>
           </div>
-        </div>
-        <div class="flex">
-          <div class="mr-4">
+          <div class="d-flex">
             <img
-              width="130"
-              height="130"
-              class="rounded-sm shadow"
+              class="thumbnail border border-dark rounded shadow-sm mr-2"
               :src="`/thumbnails/${thumbnails[index]}`"
+              alt="thumbnail"
             />
+            <div
+              class="text-uppercase text-truncate d-flex flex-column justify-content-center text-light"
+            >
+              <p class="song-name m-0 font-weight-bold text-truncate">{{ songInfo.name }}</p>
+              <span class="h4 text-truncate">{{ songInfo.author }}</span>
+            </div>
           </div>
-          <div class="self-center mb-1 text-left">
-            <h1 class="text-white tracking-wide font-bold uppercase mb-1">{{ getSongInfo.name }}</h1>
-            <h3 class="text-grey-lighter tracking-wide font-hairline uppercase">{{ getSongInfo.artist }}</h3>
-          </div>
-        </div>
+        </template>
+        <Spinner v-else />
       </div>
     </div>
   </div>
 </template>
 
 <script>
-  import axios from 'axios'
+import axios from "axios";
+import Spinner from "./Spinner";
 
-  export default {
-    data() {
-      return {
-        songs: [],
-        thumbnails: [],
-        background: '',
-        index: 0,
-        audio: new Audio,
-        progress: '0%',
-        upNext: false,
-        upNextSong: {}
-      }
+export default {
+  components: {
+    Spinner
+  },
+  data() {
+    return {
+      loading: true,
+      songs: [],
+      thumbnails: [],
+      index: 0,
+      audio: new Audio(),
+      progress: "0%"
+    };
+  },
+  methods: {
+    async fetchData() {
+      const paths = ["/songs", "/thumbnails"];
+      const promises = await Promise.all(paths.map(axios.get));
+      this.songs = [...promises[0].data];
+      this.thumbnails = [...promises[1].data];
     },
-    methods: {
-      async fetchData() {
-        const dataPaths = ['/songs', '/thumbnails', '/background']
-        const promises  = await Promise.all(dataPaths.map(path => axios.get(path)))
 
-        this.songs      = [...promises[0].data]
-        this.thumbnails = [...promises[1].data]
-        this.background = promises[2].data
-      },
+    initPlayer() {
+      const canvas = this.$refs.canvas;
+      const ctx = canvas.getContext("2d");
+      const { width, height } = canvas;
 
-      songInfo(song) {
-        const re = /\.(mp3|aac|ogg|m4a|wma|flac|wav)$/i
-        const [ name, artist ] = song.replace(re, '').split('-')
+      this.playSong();
+      const context = new AudioContext();
+      const analyser = context.createAnalyser();
+      const src = context.createMediaElementSource(this.audio);
 
-        return { name, artist }
-      },
+      src.connect(analyser);
+      analyser.connect(context.destination);
+      analyser.fftSize = 512;
+      analyser.smoothingTimeConstant = 0.8;
 
-      playSong() {
-        this.audio.src = `/songs/${this.songs[this.index]}`
-        this.audio.play()
-      },
+      renderFrame();
+      function renderFrame() {
+        requestAnimationFrame(renderFrame);
+        const dataArray = new Uint8Array(analyser.frequencyBinCount);
+        analyser.getByteFrequencyData(dataArray);
 
-      initPlayer() {
-        const canvas = this.$refs.canvas
-        const ctx = canvas.getContext("2d")
-        const { width, height } = canvas
+        ctx.clearRect(0, 0, width, height);
+        ctx.fillStyle = "#fff";
 
-        this.playSong()
-
-        const context = new AudioContext()
-        const analyser = context.createAnalyser()
-        const src = context.createMediaElementSource(this.audio)
-
-        src.connect(analyser)
-        analyser.connect(context.destination)
-        // analyser.fftSize = 512
-        // analyser.smoothingTimeConstant = 0.8
-
-        renderFrame()
-        function renderFrame() {
-          requestAnimationFrame(renderFrame)
-
-          const dataArray = new Uint8Array(analyser.frequencyBinCount)
-          analyser.getByteFrequencyData(dataArray)
-
-          ctx.clearRect(0, 0, width, height)
-          ctx.fillStyle = '#fff'
-
-          for (let i = 0, len = dataArray.length; i < len; i++) {
-            let barX = i * 7
-            let barWidth = 6
-            let barHeight = -(dataArray[i] / 2.5)
-
-            ctx.fillRect(barX, height, barWidth, barHeight)
-          }
-        }
-      },
-
-      timeUpdate() {
-        const newTime = this.audio.currentTime * (100 / this.audio.duration)
-        this.progress = newTime + '%'
-
-        if(Math.floor(this.audio.duration - this.audio.currentTime) === 5) {
-          if(this.songs[this.index + 1]) {
-            this.upNext = true
-            this.upNextSong = this.songInfo(this.songs[this.index + 1])
-          }
-        }
-      },
-
-      nextSong() {
-        if(this.songs[this.index + 1]) {
-          this.index++
-          this.playSong()
-
-          setTimeout(() => {
-            this.upNext = false
-            this.preFetch()
-          }, 500)
-        }
-        else {
-          this.index = 0
-          this.playSong()
-        }
-      },
-
-      preFetch() {
-        const nextIndex = this.index + 1
-        if(this.songs[nextIndex]) {
-          const nextDataPaths = [
-            `/thumbnails/${this.thumbnails[nextIndex]}`,
-            `/songs/${this.songs[nextIndex]}`
-          ]
-
-          Promise.all(nextDataPaths.map(path => axios.get(path)))
+        for (let i = 0, len = dataArray.length; i < len; i++) {
+          let barX = i * 7;
+          let barWidth = 6;
+          let barHeight = -(dataArray[i] / 2.5);
+          ctx.fillRect(barX, height, barWidth, barHeight);
         }
       }
     },
-    computed: {
-      getSongInfo() {
-        if(this.songs[this.index])
-          return this.songInfo(this.songs[this.index])
 
-        return {
-          name: 'Dunno',
-          artist: 'Dunno'
-        }
-      }
+    playSong() {
+      this.audio.src = `/songs/${this.songs[this.index]}`;
+      this.audio.play();
     },
-    async created() {
-      await this.fetchData()
 
-      this.initPlayer()
-      this.audio.addEventListener('timeupdate', this.timeUpdate)
-      this.audio.addEventListener('ended', this.nextSong)
+    updateProgress() {
+      const newTime = this.audio.currentTime * (100 / this.audio.duration);
+      this.progress = newTime + "%";
+    },
 
-      this.preFetch()
+    nextSong() {
+      this.index = (this.index + 1) % this.songs.length;
+      this.playSong();
     }
+  },
+  computed: {
+    songInfo() {
+      const re = /\.(mp3|aac|ogg|m4a|wma|flac|wav)$/i;
+      const [name, author] = this.songs[this.index].replace(re, "").split("-");
+      return { name, author };
+    }
+  },
+  async created() {
+    try {
+      await this.fetchData();
+      this.initPlayer();
+      this.audio.addEventListener("timeupdate", this.updateProgress);
+      this.audio.addEventListener("ended", this.nextSong);
+    } catch {
+      throw new Error("Opps! Something went wrong");
+    } finally {
+      this.loading = false;
+    }
+  },
+  beforeDestroy() {
+    this.audio.removeEventListener("timeupdate", this.updateProgress);
+    this.audio.removeEventListener("ended", this.nextSong);
   }
+};
 </script>
 
 <style>
-  #app {
-    font-family: 'Cabin', sans-serif;
-    -webkit-font-smoothing: antialiased;
-    -moz-osx-font-smoothing: grayscale;
-  }
+body {
+  line-height: 1;
+  width: 100vw;
+  height: 100vh;
+  overflow: hidden;
+  font-family: "Cabin", sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
 
-  #app,
-  #upNext {
-    background-size: cover !important;
-    background-position: center !important;
-  }
+.blurred-background {
+  background: url("/background/background.png");
+  background-position: bottom;
+  background-size: cover;
+  background-repeat: no-repeat;
+  filter: blur(2px);
+  transform: scale(1.02);
+}
+
+.content {
+  background: rgba(0, 0, 0, 0.1);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+canvas {
+  height: 170px;
+  margin-top: 7rem;
+}
+
+.song-progress {
+  height: 3px;
+  background: rgba(255, 255, 255, 0.3);
+  margin: 5px 0;
+}
+
+.thumbnail {
+  width: 130px;
+  height: 130px;
+}
+
+.thumbnail + div {
+  letter-spacing: 1px;
+}
+
+.song-name {
+  font-size: 2.4rem;
+}
 </style>
